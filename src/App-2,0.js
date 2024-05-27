@@ -5,7 +5,7 @@ import searchIconLight from './images/search_light.svg'
 import arrowDownLight from './images/Group 2_light.png'
 import arrowDownDark from './images/Group 2.png'
 import { useEffect, useState } from 'react'
-// import CountryDetails from './CountryDetails'
+import CountryDetails from './CountryDetails'
 
 async function fetchedData () {
   const res = await fetch('./data.json')
@@ -13,24 +13,9 @@ async function fetchedData () {
   return data
 }
 
-async function filterRegion (query) {
-  const allCountries = await fetchedData()
-  return allCountries.filter(country => country.region === query && country)
-}
-
-async function searchCountry (query) {
-  try {
-    const allCountries = await fetchedData()
-
-    const data = allCountries.filter(country => {
-      return country.name.toLowerCase().includes(query.toLowerCase()) && country
-    })
-
-    if (data.length === 0) throw new Error('No country found😥 try again')
-    return data
-  } catch (err) {
-    throw err
-  }
+function BodyWrapper ({ isDarkMode }) {
+  document.body.style.backgroundColor = isDarkMode ? '#2B3844' : '#ffffff'
+  return null
 }
 
 export default function App () {
@@ -42,10 +27,13 @@ export default function App () {
   const [showSelectedCountry, setShowSelectedCountry] = useState({})
   const [clickedBorder, setClickedBorder] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [displayedCountry, setDisplayedCountry] = useState(countries)
+  const [isDarkMode, setIsDarkmode] = useState(false)
 
   useEffect(function () {
     async function getAllCountriesData () {
       try {
+        setError('')
         setIsLoading(true)
         setCountries(await fetchedData())
       } catch (err) {
@@ -59,21 +47,15 @@ export default function App () {
 
   useEffect(
     function () {
-      async function getSelectedCountryDetails () {
-        try {
-          setIsLoading(true)
-          const data = await searchCountry(selectedCountry)
-          console.log(data)
-          setShowSelectedCountry(...data)
-        } catch (err) {
-          console.log('Error fetching', err)
-        } finally {
-          setIsLoading(false)
-        }
-      }
-      getSelectedCountryDetails()
+      const selectedCountryDetails = countries.filter(
+        country =>
+          country.name.toLowerCase().includes(selectedCountry.toLowerCase()) &&
+          country
+      )
+
+      setShowSelectedCountry(...selectedCountryDetails)
     },
-    [selectedCountry]
+    [selectedCountry, countries]
   )
 
   useEffect(
@@ -82,9 +64,8 @@ export default function App () {
       async function getBorderCountryDetails () {
         try {
           setIsLoading(true)
-          const allCountries = await fetchedData()
 
-          const borderCountry = allCountries.filter(
+          const borderCountry = countries.filter(
             country => country.alpha3Code === clickedBorder && country
           )
           setShowSelectedCountry(...borderCountry)
@@ -96,46 +77,59 @@ export default function App () {
       }
       getBorderCountryDetails()
     },
-    [clickedBorder]
+    [clickedBorder, countries]
   )
 
   return (
-    <div className='flex flex-col items-center'>
-      <Nav />
+    <div
+      className={`flex flex-col items-center ${
+        isDarkMode ? 'bg-[#2B3844]' : 'bg-white'
+      }`}
+    >
+      <BodyWrapper isDarkMode={isDarkMode} />
+      <Nav isDarkMode={isDarkMode} setIsDarkmode={setIsDarkmode} />
       {!showCountryDetails && (
         <>
           <div className='lg:flex lg:items-center lg:justify-between lg:pl-5 lg:pr-5 relative mt-5 pl-5 pr-5 w-full'>
             <SearchInput
-              setCountries={setCountries}
               searchedCountry={searchedCountry}
               setSearchedCountry={setSearchedCountry}
               setError={setError}
               setIsLoading={setIsLoading}
+              countries={countries}
+              setDisplayedCountry={setDisplayedCountry}
+              displayedCountry={displayedCountry}
+              isDarkMode={isDarkMode}
             />
             <FilterRegion
               setCountries={setCountries}
               setIsLoading={setIsLoading}
+              setDisplayedCountry={setDisplayedCountry}
+              countries={countries}
+              isDarkMode={isDarkMode}
             />
           </div>
 
-          {isLoading && <Loading />}
+          {isLoading && <Loading isDarkMode={isDarkMode} />}
           {!error && !isLoading && (
             <div className='grid lg:grid-cols-4 sm:grid-cols-2 min-[800px]:grid-cols-3 lg:gap-14 gap-10 p-5 mt-3 rounded-t-md w-full'>
-              {countries.map(country => (
+              {displayedCountry.map(curDisplayedCountry => (
                 <AllCountries
-                  country={country}
-                  key={country.alpha3Code}
+                  curDisplayedCountry={curDisplayedCountry}
+                  key={curDisplayedCountry.alpha3Code}
                   setShowCountryDetails={setShowCountryDetails}
                   setSelectedCountry={setSelectedCountry}
+                  isDarkMode={isDarkMode}
+                  setIsDarkmode={setIsDarkmode}
                 />
               ))}
             </div>
           )}
-          {error && <ErrorMessage error={error} />}
+          {error && <ErrorMessage error={error} isDarkMode={isDarkMode} />}
         </>
       )}
 
-      {/* {showCountryDetails && (
+      {showCountryDetails && (
         <CountryDetails
           showSelectedCountry={showSelectedCountry}
           setShowCountryDetails={setShowCountryDetails}
@@ -143,32 +137,59 @@ export default function App () {
           searchedCountry={searchedCountry}
           setClickedBorder={setClickedBorder}
           isLoading={isLoading}
+          isDarkmode={isDarkMode}
         />
-      )
-      } */}
+      )}
     </div>
   )
 }
 
-function ErrorMessage ({ error }) {
-  return <div className='text-4xl mt-10 flex text-white ml-10'>{error}</div>
-}
-
-function Loading () {
-  return <p className='text-4xl mt-10 flex text-white ml-10'>Loading...</p>
-}
-
-function Nav () {
+function ErrorMessage ({ error, isDarkMode }) {
   return (
-    <nav className='bg-white dark:bg-[#2B3844] flex justify-between p-5 shadow-xl items-center w-full'>
+    <div
+      className={`${
+        isDarkMode ? 'text-white' : 'text-black'
+      } text-4xl mt-10 flex ml-10 opacity-70`}
+    >
+      {error}
+    </div>
+  )
+}
+
+function Loading ({ isDarkMode }) {
+  return (
+    <p
+      className={`${
+        isDarkMode ? 'text-white' : 'text-black'
+      } text-4xl mt-10 flex ml-10 opacity-70`}
+    >
+      Loading...
+    </p>
+  )
+}
+
+function Nav ({ isDarkMode, setIsDarkmode }) {
+  return (
+    <nav
+      className={`${
+        isDarkMode ? 'bg-[#2B3844]' : 'bg-white'
+      } flex justify-between p-5 shadow-xl items-center w-full`}
+    >
       <div className=''>
-        <p className='font-semibold text-black dark:text-white'>
+        <p
+          className={`font-semibold ${
+            isDarkMode ? 'text-white' : 'text-black'
+          }`}
+        >
           Where in the world?
         </p>
       </div>
       <div className='flex gap-3 items-center'>
-        <img src={Path} alt='moon' className='' />
-        <button className='text-black btn-light-mode dark:text-white'>
+        <img src={isDarkMode ? Path : moon} alt='moon' className='' />
+        <button
+          className={` ${isDarkMode ? 'text-white' : 'text-black'}`}
+          onClick={() => setIsDarkmode(isDarkMode => !isDarkMode)}
+        >
           Dark mode
         </button>
       </div>
@@ -177,44 +198,53 @@ function Nav () {
 }
 
 function SearchInput ({
-  setCountries,
   searchedCountry,
   setSearchedCountry,
   setError,
-  setIsLoading
+  setIsLoading,
+  countries,
+  setDisplayedCountry,
+  isDarkMode
 }) {
   useEffect(
     function () {
-      async function getSearchedCountry () {
-        if (searchedCountry === '') return
+      try {
+        if (searchedCountry === '') setDisplayedCountry(countries)
+
         setError('')
         setIsLoading(true)
-        try {
-          const data = await searchCountry(searchedCountry)
-          setCountries(data)
+        const displaySearchedCountry = countries.filter(
+          country =>
+            country.name
+              .toLowerCase()
+              .includes(searchedCountry.toLowerCase()) && country
+        )
 
-          setError('')
-        } catch (err) {
-          setError(err.message)
-        } finally {
-          setIsLoading(false)
-        }
+        if (displaySearchedCountry.length === 0)
+          throw new Error('No country found')
+
+        setDisplayedCountry(displaySearchedCountry)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setIsLoading(false)
       }
-      getSearchedCountry()
     },
-    [searchedCountry, setCountries, setError, setIsLoading]
+    [searchedCountry, countries, setDisplayedCountry, setError, setIsLoading]
   )
   return (
     <>
       <input
         type='text'
-        className=' bg-white dark:bg-[#2B3844] p-4 rounded-md text-black dark:text-white indent-12 xl:indent-16 placeholder:font-[551] placeholder:text-xs lg:max-w-md search-coutry-el shadow-lg w-full'
+        className={`${
+          isDarkMode ? 'bg-[#2B3844] text-white' : 'bg-white text-black '
+        } p-4 rounded-md indent-12 xl:indent-16 placeholder:font-[551] placeholder:text-xs lg:max-w-md search-coutry-el shadow-lg w-full`}
         placeholder='Search for a country...'
         value={searchedCountry}
         onChange={e => setSearchedCountry(e.target.value)}
       />
       <img
-        src={searchIconLight}
+        src={isDarkMode ? searchIconDark : searchIconLight}
         alt='search'
         className='absolute top-[15%] left-9 w-4 lg:top-[40%] lg:left-[5%]'
       />
@@ -222,43 +252,45 @@ function SearchInput ({
   )
 }
 
-function FilterRegion ({ setCountries, setIsLoading }) {
+function FilterRegion ({ setDisplayedCountry, countries, isDarkMode }) {
   const [isOpen, setIsOpen] = useState(false)
-  const [selectedRegion, setSelectedRegion] = useState('')
 
   function handleSelectedRegion (e) {
-    setSelectedRegion(e.target.textContent)
+    const region = countries.filter(
+      country => country.region === e.target.textContent && country
+    )
     setIsOpen(isOpen => !isOpen)
+
+    setDisplayedCountry(region)
   }
 
-  useEffect(
-    function () {
-      if (selectedRegion === '') return
-      async function getFilteredRegion () {
-        try {
-          setIsLoading(true)
-          setCountries(await filterRegion(selectedRegion))
-        } catch (err) {
-        } finally {
-          setIsLoading(false)
-        }
-      }
-      getFilteredRegion()
-    },
-    [selectedRegion, setCountries, setIsLoading]
-  )
   return (
-    <div className='flex bg-white dark:bg-[#2B3844] mt-10 lg:mt-5 items-center justify-between max-w-52 p-4 rounded-md relative lg:gap-7 shadow-lg ml-2 lg:ml-0 w-full'>
-      <p className='text-black dark:text-white text-xs w-full'>
+    <div
+      className={`flex ${
+        isDarkMode ? 'bg-[#2B3844]' : 'bg-white'
+      } mt-10 lg:mt-5 items-center justify-between max-w-52 p-4 rounded-md relative lg:gap-7 shadow-lg ml-2 lg:ml-0 w-full`}
+    >
+      <p
+        className={`${
+          isDarkMode ? 'text-white' : 'text-black '
+        }  text-xs w-full`}
+      >
         Filter by Region
       </p>
       <button onClick={() => setIsOpen(isOpen => !isOpen)}>
-        <img src={arrowDownDark} alt='down arrow' className='' />
-        <img src={arrowDownLight} alt='down arrow' className='hidden' />
+        <img
+          src={isDarkMode ? arrowDownDark : arrowDownLight}
+          alt='down arrow'
+          className=''
+        />
       </button>
 
       {isOpen && (
-        <div className='absolute top-[110%] bg-white dark:bg-[#2B3844] dark:text-white text-black shadow-lg left-0 p-3 w-full rounded-md pl-7 regions-el z-10'>
+        <div
+          className={`absolute top-[110%] ${
+            isDarkMode ? 'bg-[#2B3844] text-white' : 'bg-white text-black'
+          }  dark: dark:  shadow-lg left-0 p-3 w-full rounded-md pl-7 regions-el z-10`}
+        >
           <ul className='flex flex-col gap-1'>
             <li onClick={e => handleSelectedRegion(e)}>Africa</li>
             <li onClick={e => handleSelectedRegion(e)}>Americas</li>
@@ -273,12 +305,13 @@ function FilterRegion ({ setCountries, setIsLoading }) {
 }
 
 function AllCountries ({
-  country,
+  curDisplayedCountry,
   setShowCountryDetails,
   setSelectedCountry,
-  error
+  error,
+  isDarkMode
 }) {
-  const { name, population, region, capital } = country
+  const { name, population, region, capital } = curDisplayedCountry
 
   function handleClickedCountry () {
     setShowCountryDetails(isOpen => !isOpen)
@@ -295,12 +328,16 @@ function AllCountries ({
         >
           <div className='w-full'>
             <img
-              src={country.flags.svg}
+              src={curDisplayedCountry.flags.svg}
               alt='flag'
               className='rounded-t-md w-full aspect-[16/9] object-cover'
             />
           </div>
-          <div className='text-white bg-[#2B3844] pt-7 pl-5 pb-12 h-full'>
+          <div
+            className={`${
+              isDarkMode ? 'bg-[#2B3844] text-white' : 'bg-white text-black'
+            }   pt-7 pl-5 pb-12 h-full`}
+          >
             <h3 className='font-bold text-xl tracking-wide'>{name}</h3>
             <h4 className='mt-5 tracking-wide'>
               <span className='font-medium text-lg'>Population</span>:
